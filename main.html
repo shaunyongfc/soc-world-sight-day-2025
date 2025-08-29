@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eye Disease Simulator - Awareness</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #f0f4f8;
+        }
+        .container {
+            max-width: 95%;
+            margin: 2rem auto;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .image-display {
+            border: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            background-color: #f8fafc;
+            position: relative; /* For overlay text */
+        }
+        .image-display canvas {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 0.25rem;
+        }
+        .image-label {
+            position: absolute;
+            bottom: 0.5rem;
+            left: 0.5rem;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+        }
+        .button-primary {
+            @apply bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out;
+        }
+        .button-secondary {
+            @apply bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 1000;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen">
+    <div class="container w-full">
+        <h1 class="text-4xl font-extrabold text-center text-gray-800 mb-4">
+            👁️ Eye Disease Simulator for Awareness 👁️
+        </h1>
+        <p class="text-center text-gray-600 mb-8 max-w-2xl mx-auto">
+            Upload an image to see how various common eye conditions might affect vision. This simulation is for awareness purposes only and is not a diagnostic tool.
+        </p>
+
+        <div class="mb-6 p-4 border border-blue-200 rounded-lg bg-blue-50">
+            <label for="imageUpload" class="block text-lg font-semibold text-blue-800 mb-2">
+                Step 1: Upload Your Image 📸
+            </label>
+            <input type="file" id="imageUpload" accept="image/*" class="w-full p-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <p class="text-sm text-blue-700 mt-2">
+                (For best results, a clear, well-lit image is recommended. Images will be resized and cropped to 4:3 aspect ratio.)
+            </p>
+        </div>
+
+        <div class="mb-8 text-center">
+            <button id="processImages" class="button-primary text-xl px-8 py-3 w-full md:w-auto">
+                Step 2: Simulate Eye Conditions! ✨
+            </button>
+        </div>
+
+        <div id="loadingOverlay" class="loading-overlay hidden">
+            <div class="spinner"></div>
+            <p class="text-gray-700 text-lg">Processing images...</p>
+        </div>
+
+        <div id="imageResults" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Original Image -->
+            <div class="image-display h-80">
+                <canvas id="canvasOriginal"></canvas>
+                <span class="image-label">Original Image</span>
+            </div>
+
+            <!-- Glaucoma (Peripheral Loss) Simulation -->
+            <div class="image-display h-80">
+                <canvas id="canvasGlaucoma"></canvas>
+                <span class="image-label">Glaucoma (Peripheral Loss)</span>
+            </div>
+
+            <!-- Macular Degeneration Simulation -->
+            <div class="image-display h-80">
+                <canvas id="canvasMacularDegeneration"></canvas>
+                <span class="image-label">Macular Degeneration</span>
+            </div>
+
+            <!-- Cataract Simulation -->
+            <div class="image-display h-80">
+                <canvas id="canvasCataract"></canvas>
+                <span class="image-label">Cataract</span>
+            </div>
+        </div>
+
+        <p class="text-center text-gray-500 text-sm mt-8">
+            These simulations are illustrative and may not perfectly represent individual experiences with these conditions. Consult a medical professional for diagnosis or treatment.
+        </p>
+    </div>
+
+    <script>
+        const imageUpload = document.getElementById('imageUpload');
+        const processImagesButton = document.getElementById('processImages');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        const canvasOriginal = document.getElementById('canvasOriginal');
+        const canvasGlaucoma = document.getElementById('canvasGlaucoma');
+        const canvasMacularDegeneration = document.getElementById('canvasMacularDegeneration');
+        const canvasCataract = document.getElementById('canvasCataract');
+        // Removed: canvasDiabeticRetinopathy, canvasRetinitisPigmentosa, canvasTunnelVision
+
+        let originalUploadedImage = new Image();
+        let resizedImageCanvas = document.createElement('canvas'); // Hidden canvas for resized image
+
+        const TARGET_WIDTH = 800; // Target width for all processed images
+        const TARGET_HEIGHT = 600; // Target height for all processed images (4:3 aspect ratio)
+
+        // Function to display messages to the user
+        function showMessage(message, type = 'info') {
+            const messageBox = document.createElement('div');
+            messageBox.className = `fixed bottom-4 right-4 p-4 rounded-lg shadow-lg text-white ${type === 'error' ? 'bg-red-500' : (type === 'success' ? 'bg-green-500' : 'bg-blue-500')}`;
+            messageBox.textContent = message;
+            document.body.appendChild(messageBox);
+            setTimeout(() => {
+                messageBox.remove();
+            }, 3000);
+        }
+
+        // Helper to draw image onto a canvas and set dimensions
+        function drawImageToCanvas(image, canvas) {
+            const ctx = canvas.getContext('2d');
+            canvas.width = image.width;
+            canvas.height = image.height;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        }
+
+        // --- Image Processing Functions ---
+
+        // Base function to get image data
+        function getImageData(sourceCanvas) {
+            const ctx = sourceCanvas.getContext('2d');
+            return ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+        }
+
+        // Base function to put image data
+        function putImageData(targetCanvas, imageData) {
+            const ctx = targetCanvas.getContext('2d');
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        // Manual Box Blur function
+        function applyBoxBlur(targetCanvas, blurRadius) {
+            if (blurRadius < 1) return; // No blur needed
+
+            const ctx = targetCanvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, targetCanvas.width, targetCanvas.height);
+            const pixels = imageData.data;
+            const width = targetCanvas.width;
+            const height = targetCanvas.height;
+            const newPixels = new Uint8ClampedArray(pixels.length);
+
+            // Iterate through each pixel
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    let r = 0, g = 0, b = 0, a = 0;
+                    let count = 0;
+
+                    // Iterate through neighboring pixels based on blurRadius
+                    for (let sy = -blurRadius; sy <= blurRadius; sy++) {
+                        for (let sx = -blurRadius; sx <= blurRadius; sx++) {
+                            const nx = x + sx;
+                            const ny = y + sy;
+
+                            // Check if the neighbor is within bounds
+                            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                const index = (ny * width + nx) * 4;
+                                r += pixels[index];
+                                g += pixels[index + 1];
+                                b += pixels[index + 2];
+                                a += pixels[index + 3];
+                                count++;
+                            }
+                        }
+                    }
+
+                    // Calculate average and assign to the new pixel
+                    const currentPixelIndex = (y * width + x) * 4;
+                    newPixels[currentPixelIndex] = r / count;
+                    newPixels[currentPixelIndex + 1] = g / count;
+                    newPixels[currentPixelIndex + 2] = b / count;
+                    newPixels[currentPixelIndex + 3] = a / count; // Keep alpha as average or original
+                }
+            }
+            imageData.data.set(newPixels); // Set the new blurred pixels
+            ctx.putImageData(imageData, 0, 0); // Put the blurred image data back
+        }
+
+
+        // Glaucoma simulation (blacken the periphery with only centre remaining, smaller tunnel, now in color)
+        function simulateGlaucoma(sourceImage, targetCanvas) {
+            const ctx = targetCanvas.getContext('2d');
+            targetCanvas.width = sourceImage.width;
+            targetCanvas.height = sourceImage.height;
+            ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height); // Clear canvas
+
+            // Draw the source image first
+            ctx.drawImage(sourceImage, 0, 0, targetCanvas.width, targetCanvas.height);
+
+            // Apply manual blur to the entire image for the base effect
+            applyBoxBlur(targetCanvas, 2); // Blur set to 2px
+
+            const centerX = targetCanvas.width / 2;
+            const centerY = targetCanvas.height / 2;
+            const minDim = Math.min(targetCanvas.width, targetCanvas.height);
+
+            const clearRadius = minDim * 0.2; // Adjusted relative to minDim
+            const fadeEndRadius = minDim * 0.45; // Adjusted relative to minDim (smaller tunnel)
+
+            // Create a radial gradient for the blackout effect
+            const gradient = ctx.createRadialGradient(centerX, centerY, clearRadius, centerX, centerY, fadeEndRadius);
+            gradient.addColorStop(0, 'rgba(0, 0, 0, 0)'); // Transparent in center
+            gradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.8)'); // Semi-transparent black
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 1)'); // Full black at periphery
+
+            ctx.fillStyle = gradient;
+            ctx.globalCompositeOperation = 'source-over'; // Draw the gradient over the blurred image
+            ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height); // Fill entire canvas with gradient
+        }
+
+        // Macular Degeneration simulation (blacken the centre with feathery edges, and blur effects on periphery)
+        function simulateMacularDegeneration(sourceImage, targetCanvas) {
+            const ctx = targetCanvas.getContext('2d');
+            targetCanvas.width = sourceImage.width;
+            targetCanvas.height = sourceImage.height;
+            ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height); // Clear canvas
+
+            // Draw the source image first
+            ctx.drawImage(sourceImage, 0, 0, targetCanvas.width, targetCanvas.height);
+
+            // Apply manual blur to the entire image for the periphery effect
+            applyBoxBlur(targetCanvas, 5); // Blur set to 5px
+
+            const centerX = targetCanvas.width / 2;
+            const centerY = targetCanvas.height / 2;
+            const minDim = Math.min(targetCanvas.width, targetCanvas.height);
+
+            const centralBlackoutStartRadius = minDim * 0.25; // Adjusted relative to minDim (larger center)
+            const centralBlackoutEndRadius = minDim * 0.45; // Adjusted relative to minDim, with feathery edge
+
+            // Create a radial gradient for the central blackout with feathery edges
+            const gradient = ctx.createRadialGradient(centerX, centerY, centralBlackoutStartRadius, centerX, centerY, centralBlackoutEndRadius);
+            gradient.addColorStop(0, 'rgba(0, 0, 0, 1)'); // Solid black in the very center
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)'); // Fades completely transparent at the edge
+
+            ctx.fillStyle = gradient;
+            ctx.globalCompositeOperation = 'source-over'; // Draw this over the blurred image
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, centralBlackoutEndRadius, 0, 2 * Math.PI); // Draw gradient circle
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over'; // Reset blend mode
+        }
+
+
+        // Cataract simulation (reduce yellowness to 1/3, and blur effect double)
+        function simulateCataract(sourceImage, targetCanvas) {
+            const ctx = targetCanvas.getContext('2d');
+            targetCanvas.width = sourceImage.width;
+            targetCanvas.height = sourceImage.height;
+            ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height); // Clear canvas
+
+            // Draw the source image first
+            ctx.drawImage(sourceImage, 0, 0, targetCanvas.width, targetCanvas.height);
+
+            // Apply manual blur to the entire image
+            applyBoxBlur(targetCanvas, 3); // Blur set to 3px
+
+            // Apply brightness/contrast filter (this still uses ctx.filter for subtle adjustments)
+            ctx.filter = 'brightness(0.7) contrast(0.8)';
+            ctx.drawImage(targetCanvas, 0, 0); // Redraw canvas content with filter
+            ctx.filter = 'none'; // Reset filter
+
+            // Add a yellow tint over the already blurred image (reduced yellowness)
+            ctx.fillStyle = 'rgba(255, 255, 100, 0.13)'; 
+            ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+        }
+
+        // --- Event Listeners ---
+        imageUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    originalUploadedImage.onload = () => {
+                        let srcWidth = originalUploadedImage.naturalWidth;
+                        let srcHeight = originalUploadedImage.naturalHeight;
+
+                        const aspectRatio = srcWidth / srcHeight;
+                        const targetAspectRatio = TARGET_WIDTH / TARGET_HEIGHT; // 4:3
+
+                        let cropX = 0, cropY = 0, cropWidth = srcWidth, cropHeight = srcHeight;
+
+                        if (aspectRatio > targetAspectRatio) {
+                            // Image is wider than 4:3, crop width
+                            cropWidth = srcHeight * targetAspectRatio;
+                            cropX = (srcWidth - cropWidth) / 2;
+                        } else {
+                            // Image is taller than 4:3, crop height
+                            cropHeight = srcWidth / targetAspectRatio;
+                            cropY = (srcHeight - cropHeight) / 2;
+                        }
+
+                        // Create an intermediate canvas for cropping
+                        const cropCanvas = document.createElement('canvas');
+                        const cropCtx = cropCanvas.getContext('2d');
+                        cropCanvas.width = cropWidth;
+                        cropCanvas.height = cropHeight;
+                        cropCtx.drawImage(originalUploadedImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+                        // Resize the cropped image to the target dimensions (800x600)
+                        resizedImageCanvas.width = TARGET_WIDTH;
+                        resizedImageCanvas.height = TARGET_HEIGHT;
+                        const resizedCtx = resizedImageCanvas.getContext('2d');
+                        resizedCtx.clearRect(0, 0, TARGET_WIDTH, TARGET_HEIGHT);
+                        resizedCtx.drawImage(cropCanvas, 0, 0, TARGET_WIDTH, TARGET_HEIGHT);
+
+                        // Draw resized image to original display canvas
+                        drawImageToCanvas(resizedImageCanvas, canvasOriginal);
+                        showMessage('Image loaded, cropped, and resized successfully!', 'success');
+                    };
+                    originalUploadedImage.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                showMessage('No file selected.', 'error');
+            }
+        });
+
+        processImagesButton.addEventListener('click', () => {
+            if (!originalUploadedImage.src || originalUploadedImage.src === "") {
+                showMessage('Please upload an image first!', 'error');
+                return;
+            }
+
+            loadingOverlay.classList.remove('hidden');
+
+            // Use setTimeout to allow the loading overlay to render before heavy processing starts
+            setTimeout(() => {
+                // Create a new Image from the resized canvas data
+                const processedBaseImage = new Image();
+                processedBaseImage.onload = () => {
+                    console.log(`Processing image - width: ${processedBaseImage.width}, height: ${processedBaseImage.height}`); // Log dimensions
+
+                    // Apply all simulations
+                    try {
+                        simulateGlaucoma(processedBaseImage, canvasGlaucoma);
+                    } catch (e) {
+                        console.error("Error simulating Glaucoma:", e);
+                        showMessage("Error simulating Glaucoma.", 'error');
+                    }
+                    try {
+                        simulateMacularDegeneration(processedBaseImage, canvasMacularDegeneration);
+                    } catch (e) {
+                        console.error("Error simulating Macular Degeneration:", e);
+                        showMessage("Error simulating Macular Degeneration.", 'error');
+                    }
+                    try {
+                        simulateCataract(processedBaseImage, canvasCataract);
+                    } catch (e) {
+                        console.error("Error simulating Cataract:", e);
+                        showMessage("Error simulating Cataract.", 'error');
+                    }
+                    // Removed calls for Diabetic Retinopathy, Retinitis Pigmentosa, Tunnel Vision
+
+                    loadingOverlay.classList.add('hidden');
+                    showMessage('Simulations complete!', 'success');
+                };
+                processedBaseImage.src = resizedImageCanvas.toDataURL(); // Get image from the hidden resized canvas
+            }, 100); // Small delay
+        });
+    </script>
+</body>
+</html>
