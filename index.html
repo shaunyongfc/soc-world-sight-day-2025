@@ -115,9 +115,9 @@
                 <span class="image-label">Original Image</span>
             </div>
 
-            <!-- Glaucoma (Peripheral Loss) Simulation -->
+            <!-- Glaucoma Simulation (Peripheral Loss) -->
             <div class="image-display h-80">
-                <canvas id="canvasGlaucoma"></canvas>
+                <canvas id="canvasGlaucomaPeripheral"></canvas>
                 <span class="image-label">Glaucoma (Peripheral Loss)</span>
             </div>
 
@@ -132,6 +132,18 @@
                 <canvas id="canvasCataract"></canvas>
                 <span class="image-label">Cataract</span>
             </div>
+
+            <!-- Diabetic Retinopathy Simulation -->
+            <div class="image-display h-80">
+                <canvas id="canvasDiabeticRetinopathy"></canvas>
+                <span class="image-label">Diabetic Retinopathy</span>
+            </div>
+
+            <!-- Retinitis Pigmentosa Simulation (Wider Peripheral Loss) -->
+            <div class="image-display h-80">
+                <canvas id="canvasRetinitisPigmentosa"></canvas>
+                <span class="image-label">Retinitis Pigmentosa (Wider Peripheral Loss)</span>
+            </div>
         </div>
 
         <p class="text-center text-gray-500 text-sm mt-8">
@@ -145,10 +157,12 @@
         const loadingOverlay = document.getElementById('loadingOverlay');
 
         const canvasOriginal = document.getElementById('canvasOriginal');
-        const canvasGlaucoma = document.getElementById('canvasGlaucoma');
+        const canvasGlaucomaPeripheral = document.getElementById('canvasGlaucomaPeripheral');
         const canvasMacularDegeneration = document.getElementById('canvasMacularDegeneration');
         const canvasCataract = document.getElementById('canvasCataract');
-        // Removed: canvasDiabeticRetinopathy, canvasRetinitisPigmentosa, canvasTunnelVision
+        const canvasDiabeticRetinopathy = document = document.getElementById('canvasDiabeticRetinopathy');
+        const canvasRetinitisPigmentosa = document.getElementById('canvasRetinitisPigmentosa');
+
 
         let originalUploadedImage = new Image();
         let resizedImageCanvas = document.createElement('canvas'); // Hidden canvas for resized image
@@ -214,14 +228,14 @@
                             const ny = y + sy;
 
                             // Check if the neighbor is within bounds
-                            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                            nx >= 0 && nx < width && ny >= 0 && ny < height && (function() {
                                 const index = (ny * width + nx) * 4;
                                 r += pixels[index];
                                 g += pixels[index + 1];
                                 b += pixels[index + 2];
                                 a += pixels[index + 3];
                                 count++;
-                            }
+                            })();
                         }
                     }
 
@@ -238,8 +252,8 @@
         }
 
 
-        // Glaucoma simulation (blacken the periphery with only centre remaining, smaller tunnel, now in color)
-        function simulateGlaucoma(sourceImage, targetCanvas) {
+        // Glaucoma simulation (Peripheral Loss)
+        function simulateGlaucomaPeripheral(sourceImage, targetCanvas) {
             const ctx = targetCanvas.getContext('2d');
             targetCanvas.width = sourceImage.width;
             targetCanvas.height = sourceImage.height;
@@ -255,13 +269,13 @@
             const centerY = targetCanvas.height / 2;
             const minDim = Math.min(targetCanvas.width, targetCanvas.height);
 
-            const clearRadius = minDim * 0.2; // Adjusted relative to minDim
+            const clearRadius = minDim * 0.2; // Adjusted relative to minDim for consistent sizing
             const fadeEndRadius = minDim * 0.45; // Adjusted relative to minDim (smaller tunnel)
 
-            // Create a radial gradient for the blackout effect
+            // Create a radial gradient that is transparent in the center and opaque black at the periphery
             const gradient = ctx.createRadialGradient(centerX, centerY, clearRadius, centerX, centerY, fadeEndRadius);
             gradient.addColorStop(0, 'rgba(0, 0, 0, 0)'); // Transparent in center
-            gradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.8)'); // Semi-transparent black
+            gradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.8)'); // Semi-transparent black, slightly stronger
             gradient.addColorStop(1, 'rgba(0, 0, 0, 1)'); // Full black at periphery
 
             ctx.fillStyle = gradient;
@@ -303,7 +317,7 @@
         }
 
 
-        // Cataract simulation (reduce yellowness to 1/3, and blur effect double)
+        // Cataract simulation (general desaturation, slight yellowing, and blur)
         function simulateCataract(sourceImage, targetCanvas) {
             const ctx = targetCanvas.getContext('2d');
             targetCanvas.width = sourceImage.width;
@@ -316,15 +330,100 @@
             // Apply manual blur to the entire image
             applyBoxBlur(targetCanvas, 3); // Blur set to 3px
 
+            // --- Apply desaturation manually (20-25%) ---
+            let imageData = ctx.getImageData(0, 0, targetCanvas.width, targetCanvas.height);
+            let pixels = imageData.data;
+            const desaturationFactor = 0.775; // Roughly 22.5% desaturation (1 - 0.225)
+            for (let i = 0; i < pixels.length; i += 4) {
+                let r = pixels[i];
+                let g = pixels[i + 1];
+                let b = pixels[i + 2];
+                // Calculate luminance (perceived brightness)
+                let luma = 0.299 * r + 0.587 * g + 0.114 * b;
+                pixels[i] = r + (luma - r) * (1 - desaturationFactor);     // Red
+                pixels[i + 1] = g + (luma - g) * (1 - desaturationFactor); // Green
+                pixels[i + 2] = b + (luma - b) * (1 - desaturationFactor); // Blue
+            }
+            ctx.putImageData(imageData, 0, 0);
+
+
             // Apply brightness/contrast filter (this still uses ctx.filter for subtle adjustments)
             ctx.filter = 'brightness(0.7) contrast(0.8)';
             ctx.drawImage(targetCanvas, 0, 0); // Redraw canvas content with filter
             ctx.filter = 'none'; // Reset filter
 
-            // Add a yellow tint over the already blurred image (reduced yellowness)
+            // Add a yellow tint over the already blurred and desaturated image
             ctx.fillStyle = 'rgba(255, 255, 100, 0.13)'; 
             ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
         }
+
+        // NEW/OPTIMIZED: Diabetic Retinopathy simulation
+        function simulateDiabeticRetinopathy(sourceImage, targetCanvas) {
+            const ctx = targetCanvas.getContext('2d');
+            targetCanvas.width = sourceImage.width;
+            targetCanvas.height = sourceImage.height;
+            ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height); // Clear canvas
+
+            // Draw the source image first
+            ctx.drawImage(sourceImage, 0, 0, targetCanvas.width, targetCanvas.height);
+
+            // Apply general blur of 2px to the base image
+            applyBoxBlur(targetCanvas, 2);
+
+            // --- Optimization: Pre-blur the entire image for spots ---
+            const preBlurredSpotsCanvas = document.createElement('canvas');
+            preBlurredSpotsCanvas.width = targetCanvas.width;
+            preBlurredSpotsCanvas.height = targetCanvas.height;
+            const preBlurredSpotsCtx = preBlurredSpotsCanvas.getContext('2d');
+            preBlurredSpotsCtx.drawImage(sourceImage, 0, 0, targetCanvas.width, targetCanvas.height);
+            applyBoxBlur(preBlurredSpotsCanvas, 20); // Apply 20px blur once to the full image
+
+            // Add 4 scattered blurred circles (150px diameter, so 75px radius)
+            const numSpots = 4;
+            const spotRadius = 75; // 150px diameter
+
+            for (let i = 0; i < numSpots; i++) {
+                const x = Math.random() * (targetCanvas.width - spotRadius * 2) + spotRadius; // Ensure spots stay within bounds
+                const y = Math.random() * (targetCanvas.height - spotRadius * 2) + spotRadius; // Ensure spots stay within bounds
+
+                ctx.save(); // Save current canvas state
+                ctx.beginPath();
+                ctx.arc(x, y, spotRadius, 0, Math.PI * 2);
+                ctx.clip(); // Clip further drawing to this circle
+
+                // Draw the blurred content from the pre-blurred canvas into the clipped area
+                ctx.drawImage(preBlurredSpotsCanvas, 0, 0); 
+                
+                ctx.restore(); // Restore canvas state (remove clipping path)
+            }
+            // Black spots are explicitly removed
+        }
+
+        // UPDATED: Retinitis Pigmentosa simulation (Wider Peripheral Loss, using radial gradient with adjusted parameters)
+        function simulateRetinitisPigmentosa(sourceImage, targetCanvas) {
+            const ctx = targetCanvas.getContext('2d');
+            targetCanvas.width = sourceImage.width;
+            targetCanvas.height = sourceImage.height;
+            ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height); // Clear canvas
+            // Draw the source image first
+            ctx.drawImage(sourceImage, 0, 0, targetCanvas.width, targetCanvas.height);
+            // Apply manual blur to the entire image for the base effect
+            applyBoxBlur(targetCanvas, 2); // Blur set to 2px
+            const centerX = targetCanvas.width / 2;
+            const centerY = targetCanvas.height / 2;
+            const minDim = Math.min(targetCanvas.width, targetCanvas.height);
+            const clearRadius = minDim * 0.1; // Adjusted relative to minDim for consistent sizing
+            const fadeEndRadius = minDim * 0.6; // Adjusted relative to minDim (smaller tunnel)
+            // Create a radial gradient that is transparent in the center and opaque black at the periphery
+            const gradient = ctx.createRadialGradient(centerX, centerY, clearRadius, centerX, centerY, fadeEndRadius);
+            gradient.addColorStop(0, 'rgba(0, 0, 0, 0)'); // Transparent in center
+            gradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.8)'); // Semi-transparent black, slightly stronger
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 1)'); // Full black at periphery
+            ctx.fillStyle = gradient;
+            ctx.globalCompositeOperation = 'source-over'; // Draw the gradient over the blurred image
+            ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height); // Fill entire canvas with gradient
+        }
+
 
         // --- Event Listeners ---
         imageUpload.addEventListener('change', (event) => {
@@ -392,29 +491,19 @@
                 processedBaseImage.onload = () => {
                     console.log(`Processing image - width: ${processedBaseImage.width}, height: ${processedBaseImage.height}`); // Log dimensions
 
-                    // Apply all simulations
                     try {
-                        simulateGlaucoma(processedBaseImage, canvasGlaucoma);
-                    } catch (e) {
-                        console.error("Error simulating Glaucoma:", e);
-                        showMessage("Error simulating Glaucoma.", 'error');
-                    }
-                    try {
+                        simulateGlaucomaPeripheral(processedBaseImage, canvasGlaucomaPeripheral); // Glaucoma
                         simulateMacularDegeneration(processedBaseImage, canvasMacularDegeneration);
-                    } catch (e) {
-                        console.error("Error simulating Macular Degeneration:", e);
-                        showMessage("Error simulating Macular Degeneration.", 'error');
-                    }
-                    try {
                         simulateCataract(processedBaseImage, canvasCataract);
+                        simulateDiabeticRetinopathy(processedBaseImage, canvasDiabeticRetinopathy);
+                        simulateRetinitisPigmentosa(processedBaseImage, canvasRetinitisPigmentosa); // Re-added Retinitis Pigmentosa
+                        showMessage('Simulations complete!', 'success');
                     } catch (e) {
-                        console.error("Error simulating Cataract:", e);
-                        showMessage("Error simulating Cataract.", 'error');
+                        console.error("Error during simulation:", e);
+                        showMessage(`Error during simulation: ${e.message}`, 'error');
+                    } finally {
+                        loadingOverlay.classList.add('hidden'); // Ensure loading overlay is always hidden
                     }
-                    // Removed calls for Diabetic Retinopathy, Retinitis Pigmentosa, Tunnel Vision
-
-                    loadingOverlay.classList.add('hidden');
-                    showMessage('Simulations complete!', 'success');
                 };
                 processedBaseImage.src = resizedImageCanvas.toDataURL(); // Get image from the hidden resized canvas
             }, 100); // Small delay
