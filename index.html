@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eye Disease Simulator - Awareness</title>
+    <title>Eye Disease Simulator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -81,7 +81,8 @@
 <body class="flex flex-col items-center justify-center min-h-screen">
     <div class="container w-full">
         <h1 class="text-4xl font-extrabold text-center text-gray-800 mb-4">
-            👁️ Eye Disease Simulator for Awareness 👁️
+            SEGI Optometry Club - World Sight Day 2025<br>
+            Eye Disease Simulator
         </h1>
         <p class="text-center text-gray-600 mb-8 max-w-2xl mx-auto">
             Upload an image to see how various common eye conditions might affect vision. This simulation is for awareness purposes only and is not a diagnostic tool.
@@ -99,7 +100,7 @@
 
         <div class="mb-8 text-center">
             <button id="processImages" class="button-primary text-xl px-8 py-3 w-full md:w-auto">
-                Step 2: Simulate Eye Conditions! ✨
+                Step 2: Click Here to Simulate Eye Conditions! ✨
             </button>
         </div>
 
@@ -142,7 +143,7 @@
             <!-- Retinitis Pigmentosa Simulation (Wider Peripheral Loss) -->
             <div class="image-display h-80">
                 <canvas id="canvasRetinitisPigmentosa"></canvas>
-                <span class="image-label">Retinitis Pigmentosa (Wider Peripheral Loss)</span>
+                <span class="image-label">Retinitis Pigmentosa</span>
             </div>
         </div>
 
@@ -263,7 +264,7 @@
             ctx.drawImage(sourceImage, 0, 0, targetCanvas.width, targetCanvas.height);
 
             // Apply manual blur to the entire image for the base effect
-            applyBoxBlur(targetCanvas, 2); // Blur set to 2px
+            applyBoxBlur(targetCanvas, 1); // Blur set to 2px
 
             const centerX = targetCanvas.width / 2;
             const centerY = targetCanvas.height / 2;
@@ -294,7 +295,7 @@
             ctx.drawImage(sourceImage, 0, 0, targetCanvas.width, targetCanvas.height);
 
             // Apply manual blur to the entire image for the periphery effect
-            applyBoxBlur(targetCanvas, 5); // Blur set to 5px
+            applyBoxBlur(targetCanvas, 6); // Blur set to 5px
 
             const centerX = targetCanvas.width / 2;
             const centerY = targetCanvas.height / 2;
@@ -353,7 +354,7 @@
             ctx.filter = 'none'; // Reset filter
 
             // Add a yellow tint over the already blurred and desaturated image
-            ctx.fillStyle = 'rgba(255, 255, 100, 0.13)'; 
+            ctx.fillStyle = 'rgba(255, 255, 100, 0.13)';
             ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
         }
 
@@ -392,8 +393,8 @@
                 ctx.clip(); // Clip further drawing to this circle
 
                 // Draw the blurred content from the pre-blurred canvas into the clipped area
-                ctx.drawImage(preBlurredSpotsCanvas, 0, 0); 
-                
+                ctx.drawImage(preBlurredSpotsCanvas, 0, 0);
+
                 ctx.restore(); // Restore canvas state (remove clipping path)
             }
             // Black spots are explicitly removed
@@ -408,12 +409,12 @@
             // Draw the source image first
             ctx.drawImage(sourceImage, 0, 0, targetCanvas.width, targetCanvas.height);
             // Apply manual blur to the entire image for the base effect
-            applyBoxBlur(targetCanvas, 2); // Blur set to 2px
+            applyBoxBlur(targetCanvas, 3); // Blur set to 2px
             const centerX = targetCanvas.width / 2;
             const centerY = targetCanvas.height / 2;
             const minDim = Math.min(targetCanvas.width, targetCanvas.height);
             const clearRadius = minDim * 0.1; // Adjusted relative to minDim for consistent sizing
-            const fadeEndRadius = minDim * 0.6; // Adjusted relative to minDim (smaller tunnel)
+            const fadeEndRadius = minDim * 0.7; // Adjusted relative to minDim (smaller tunnel)
             // Create a radial gradient that is transparent in the center and opaque black at the periphery
             const gradient = ctx.createRadialGradient(centerX, centerY, clearRadius, centerX, centerY, fadeEndRadius);
             gradient.addColorStop(0, 'rgba(0, 0, 0, 0)'); // Transparent in center
